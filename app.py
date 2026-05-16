@@ -171,32 +171,35 @@ def parse_po_ocr(text):
         segment = clean_ocr[code_match.end():code_match.end() + 180]
 
         qty_match = re.search(
-            r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)",
-            segment,
-            re.IGNORECASE
-        )
+    r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)",
+    segment,
+    re.IGNORECASE
+)
 
-        if not qty_match:
-            continue
+if qty_match:
+    qty = int(qty_match.group(1))
+else:
+    nums = re.findall(r"\b[0-9]{1,5}\b", segment)
+    nums = [int(n) for n in nums if int(n) not in [1,2,3,4,5,30,100,2000]]
 
-        qty = int(qty_match.group(1))
+    if nums:
+        qty = nums[-1]
+    else:
+        qty = 0
 
-        if qty <= 0:
-            continue
-
-        items.append({
-            "採購單號": po_no,
-            "品號": code,
-            "藥名": row["標準藥名"],
-            "標準藥名": row["標準藥名"],
-            "學名": row.get("學名", ""),
-            "別名1": row.get("別名1", ""),
-            "別名2": row.get("別名2", ""),
-            "採購數量": qty,
-            "廠商": supplier,
-            "已驗收數量": 0,
-            "狀態": "待驗收"
-        })
+items.append({
+    "採購單號": po_no,
+    "品號": code,
+    "品名": row["標準品名"],
+    "標準品名": row["標準品名"],
+    "學名": row.get("學名", ""),
+    "別名1": row.get("別名1", ""),
+    "別名2": row.get("別名2", ""),
+    "採購數量": qty,
+    "廠商": supplier,
+    "已驗收數量": 0,
+    "狀態": "待驗收"
+})
 
     df = pd.DataFrame(items)
 

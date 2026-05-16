@@ -100,7 +100,9 @@ def make_status(order_qty, received_qty):
 
 
 def find_best_match(ocr_text, po_items):
-    best_row, best_score = None, 0
+    best_row = None
+    best_score = 0
+
     for _, row in po_items.iterrows():
         candidates = [
             row.get("品號", ""),
@@ -110,75 +112,101 @@ def find_best_match(ocr_text, po_items):
             row.get("別名1", ""),
             row.get("別名2", "")
         ]
+
         score = 0
         for c in candidates:
             if str(c).strip():
-                score = max(
-                    score,
-                    1.0 if clean_text(c) in clean_text(ocr_text) else similarity(ocr_text, c)
-                )
+                if clean_text(c) in clean_text(ocr_text):
+                    score = max(score, 1.0)
+                else:
+                    score = max(score, similarity(ocr_text, c))
+
         if score > best_score:
-            best_row, best_score = row, score
+            best_score = score
+            best_row = row
+
     return best_row, best_score
 
 
-for _, row in master_df.iterrows():
-    code = str(row["品號"]).strip()
+def parse_po_ocr(text):
+    po_no = extract_by_patterns(text, [
+        r"(BB[0-9]{6,})"
+    ])
 
-    if not code:
-        continue
+    supplier = extract_by_patterns(text, [
+        r"(.+?股份有限公司)",
+        r"(.+?有限公司)"
+    ])
 
-    code_match = re.search(re.escape(code), clean_ocr, re.IGNORECASE)
+    if "master_df" not in st.session_state:
+        st.error("請先載入藥品主檔")
+        return pd.DataFrame()
 
-    if not code_match:
-        continue
+    if st.session_state["master_df"] is None:
+        st.error("請先載入藥品主檔")
+        return pd.DataFrame()
 
-    # 只取品號後面一小段，避免抓到下一個品項或其他欄位
-    segment = clean_ocr[code_match.end():code_match.end() + 160]
+    if st.session_state["master_df"].empty:
+        st.error("藥品主檔是空的")
+        return pd.DataFrame()
 
-    # 抓 SET / VIAL / AMP / TAB / CAP 前面的數字
-    qty_match = re.search(
-        r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)",
-        segment,
-        re.IGNORECASE
-    )
+    master_df = st.session_state["master_df"].copy()
+    master_df["品號"] = master_df["品號"].astype(str).str.strip()
 
-    if not qty_match:
-        continue
+    clean_ocr = re.sub(r"\s+", " ", text)
 
-    qty = int(qty_match.group(1))
+    items = []
 
-    if qty <= 0:
-        continue
+    for _, row in master_df.iterrows():
+        code = str(row["品號"]).strip()
 
-    items.append({
-        "採購單號": po_no,
-        "品號": code,
-        "藥名": row["標準藥名"],
-        "標準藥名": row["標準藥名"],
-        "學名": row.get("學名", ""),
-        "別名1": row.get("別名1", ""),
-        "別名2": row.get("別名2", ""),
-        "採購數量": qty,
-        "廠商": supplier,
-        "已驗收數量": 0,
-        "狀態": "待驗收"
-    })
+        if not code:
+            continue
+
+        code_match = re.search(re.escape(code), clean_ocr, re.IGNORECASE)
+
+        if not code_match:
+            continue
+
+        segment = clean_ocr[code_match.end():code_match.end() + 180]
+
+        qty_match = re.search(
+            r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)",
+            segment,
+            re.IGNORECASE
+        )
+
+        if not qty_match:
+            continue
+
+        qty = int(qty_match.group(1))
+
+        if qty <= 0:
+            continue
+
+        items.append({
+            "採購單號": po_no,
+            "品號": code,
+            "藥名": row["標準藥名"],
+            "標準藥名": row["標準藥名"],
+            "學名": row.get("學名", ""),
+            "別名1": row.get("別名1", ""),
+            "別名2": row.get("別名2", ""),
+            "採購數量": qty,
+            "廠商": supplier,
+            "已驗收數量": 0,
+            "狀態": "待驗收"
+        })
 
     df = pd.DataFrame(items)
 
     if df.empty:
         st.warning("採購單 OCR 沒抓到任何主檔品號")
-    return df
+        return df
 
     df = df.drop_duplicates(subset=["品號"])
 
     return df
-
-    df = df.drop_duplicates(subset=["品號"])
-
-    return df
-
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "⓪ 藥品主檔",
     "① 匯入採購單",

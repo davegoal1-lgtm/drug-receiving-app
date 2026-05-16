@@ -152,7 +152,7 @@ def parse_po_ocr(text):
     items = []
 
     for _, row in master_df.iterrows():
-    code = str(row["品號"]).strip()
+        code = str(row["品號"]).strip()
 
     if not code:
         continue

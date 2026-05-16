@@ -132,12 +132,20 @@ def parse_po_ocr(text):
         r"(.+?有限公司)"
     ])
 
-    if st.session_state.master_df is None:
-        st.error("請先載入藥品主檔")
-        return pd.DataFrame()
+    if "master_df" not in st.session_state:
+    st.error("請先載入藥品主檔")
+    return pd.DataFrame()
 
-    master_df = st.session_state.master_df.copy()
-    master_df["品號"] = master_df["品號"].astype(str).str.strip()
+if st.session_state["master_df"] is None:
+    st.error("請先載入藥品主檔")
+    return pd.DataFrame()
+
+if st.session_state["master_df"].empty:
+    st.error("藥品主檔是空的")
+    return pd.DataFrame()
+
+master_df = st.session_state["master_df"].copy()
+master_df["品號"] = master_df["品號"].astype(str).str.strip()
 
     clean_ocr = re.sub(r"\s+", " ", text)
 

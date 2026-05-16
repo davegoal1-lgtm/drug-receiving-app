@@ -164,7 +164,7 @@ def parse_po_ocr(text):
         qty = int(match.group(1))
 
         if qty <= 0:
-                continue
+            continue
 
         items.append({
                 "採購單號": po_no,

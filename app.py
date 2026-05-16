@@ -157,11 +157,11 @@ def parse_po_ocr(text):
         if not code:
             continue
 
-        pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})"
-        match = re.search(pattern, clean_ocr)
+    pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)"
+    match = re.search(pattern, clean_ocr, re.IGNORECASE)
 
-        if match:
-            qty = int(match.group(1))
+    if match:
+        qty = int(match.group(1))
 
             if qty <= 0:
                 continue

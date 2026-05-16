@@ -124,81 +124,63 @@ def find_best_match(ocr_text, po_items):
 
 def parse_po_ocr(text):
     po_no = extract_by_patterns(text, [
-        r"採購單號[:：\s]*([A-Z]{2}[0-9]+)",
         r"(BB[0-9]{6,})"
     ])
 
     supplier = extract_by_patterns(text, [
-        r"廠商代號[:：\s]*[0-9]*\s*[\n\s]*(.+?股份有限公司)",
-        r"廠商[:：\s]*(.+?股份有限公司)",
-        r"供應商[:：\s]*(.+?股份有限公司)"
+        r"(.+?股份有限公司)",
+        r"(.+?有限公司)"
     ])
 
-    raw_lines = [re.sub(r"\s+", " ", line.strip()) for line in text.splitlines() if line.strip()]
+    if st.session_state.master_df is None:
+        st.error("請先載入藥品主檔")
+        return pd.DataFrame()
 
-    # 把整份 OCR 文字合併，避免同一品項被拆成多行
-    merged_text = " ".join(raw_lines)
+    master_df = st.session_state.master_df.copy()
+    master_df["品號"] = master_df["品號"].astype(str).str.strip()
 
-    # 品號格式：大寫英文+數字，像 ENOX2 / IGRAN3 / IISAT1 / ISEMA1
-    code_pattern = r"\b([A-Z]{1,5}[A-Z0-9]{2,8})\b"
-
-    matches = list(re.finditer(code_pattern, merged_text))
+    clean_ocr = re.sub(r"\s+", " ", text)
 
     items = []
 
-    for i, m in enumerate(matches):
-        code = m.group(1)
+    for _, row in master_df.iterrows():
+        code = str(row["品號"]).strip()
 
-        # 排除不是品號的代碼
-        if code.startswith("BB"):
-            continue
-        if code in ["SET", "AMP", "VIAL", "TAB", "CAP", "EXP", "LOT"]:
+        if not code:
             continue
 
-        start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(merged_text)
-        segment = merged_text[start:end].strip()
+        # 找 OCR 中是否有這個品號
+        pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})"
+        match = re.search(pattern, clean_ocr)
 
-        # 找數量 + 單位
-        qty_match = re.search(r"(.+?)\s+([0-9]+)\s*(SET|AMP|VIAL|盒|支|瓶|TAB|CAP)\b", segment)
+        if match:
+            qty = int(match.group(1))
 
-        if qty_match:
-            name = qty_match.group(1).strip()
-            qty = int(qty_match.group(2))
+            # 避免抓到奇怪數字
+            if qty <= 0:
+                continue
 
-            # 清掉價格、日期等後段雜訊
-            name = re.sub(r"\s+", " ", name)
-            name = re.sub(r"^\d+\s*", "", name)
-
-            if len(name) >= 2:
-                items.append({
-                    "採購單號": po_no,
-                    "品號": code,
-                    "藥名": name,
-                    "標準藥名": name,
-                    "學名": "",
-                    "別名1": "",
-                    "別名2": "",
-                    "採購數量": qty,
-                    "廠商": supplier,
-                    "已驗收數量": 0,
-                    "狀態": "待驗收"
-                })
+            items.append({
+                "採購單號": po_no,
+                "品號": code,
+                "藥名": row["標準藥名"],
+                "標準藥名": row["標準藥名"],
+                "學名": row.get("學名", ""),
+                "別名1": row.get("別名1", ""),
+                "別名2": row.get("別名2", ""),
+                "採購數量": qty,
+                "廠商": supplier,
+                "已驗收數量": 0,
+                "狀態": "待驗收"
+            })
 
     df = pd.DataFrame(items)
 
-    if not df.empty and st.session_state.master_df is not None:
-        df["品號"] = df["品號"].astype(str).str.strip()
-        df = df.merge(st.session_state.master_df, on="品號", how="left", suffixes=("", "_主檔"))
-        df["標準藥名"] = df["標準藥名_主檔"].fillna(df["藥名"])
-        df["學名"] = df["學名_主檔"].fillna("")
-        df["別名1"] = df["別名1_主檔"].fillna("")
-        df["別名2"] = df["別名2_主檔"].fillna("")
+    if df.empty:
+        st.warning("採購單 OCR 沒抓到任何主檔品號")
+        return df
 
-        df = df[[
-            "採購單號", "品號", "藥名", "標準藥名", "學名",
-            "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
-        ]]
+    df = df.drop_duplicates(subset=["品號"])
 
     return df
 

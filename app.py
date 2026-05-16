@@ -222,16 +222,24 @@ with tab0:
         with c5:
             alias2_col = st.selectbox("別名2欄位", ["無"] + cols)
 
-        if st.button("載入藥品主檔"):
-            df = raw.copy()
-            df = df.rename(columns={code_col: "品號", name_col: "標準藥名"})
-            df["品號"] = df["品號"].astype(str).str.strip()
-            df["標準藥名"] = df["標準藥名"].astype(str).str.strip()
-            df["學名"] = df[generic_col].astype(str).str.strip() if generic_col != "無" else ""
-            df["別名1"] = df[alias1_col].astype(str).str.strip() if alias1_col != "無" else ""
-            df["別名2"] = df[alias2_col].astype(str).str.strip() if alias2_col != "無" else ""
-            st.session_state.master_df = df[["品號", "標準藥名", "學名", "別名1", "別名2"]]
-            st.success("藥品主檔已載入")
+if st.button("載入藥品主檔"):
+    master_df = df.copy()
+
+    master_df["品號"] = master_df[selected_code_col].astype(str).str.strip()
+    master_df["標準藥名"] = master_df[selected_name_col].astype(str)
+
+    if "學名" not in master_df.columns:
+        master_df["學名"] = ""
+
+    if "別名1" not in master_df.columns:
+        master_df["別名1"] = ""
+
+    if "別名2" not in master_df.columns:
+        master_df["別名2"] = ""
+
+    st.session_state["master_df"] = master_df
+
+    st.success("藥品主檔載入完成")
 
     if st.session_state.master_df is not None:
         st.dataframe(st.session_state.master_df, use_container_width=True)

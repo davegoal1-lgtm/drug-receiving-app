@@ -132,7 +132,7 @@ def parse_po_ocr(text):
         r"(.+?有限公司)"
     ])
 
-    if "master_df" not in st.session_state:
+if "master_df" not in st.session_state:
     st.error("請先載入藥品主檔")
     return pd.DataFrame()
 

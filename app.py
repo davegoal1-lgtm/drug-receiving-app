@@ -134,43 +134,56 @@ def parse_po_ocr(text):
         r"供應商[:：\s]*(.+?股份有限公司)"
     ])
 
+    raw_lines = [re.sub(r"\s+", " ", line.strip()) for line in text.splitlines() if line.strip()]
+
+    # 把整份 OCR 文字合併，避免同一品項被拆成多行
+    merged_text = " ".join(raw_lines)
+
+    # 品號格式：大寫英文+數字，像 ENOX2 / IGRAN3 / IISAT1 / ISEMA1
+    code_pattern = r"\b([A-Z]{1,5}[A-Z0-9]{2,8})\b"
+
+    matches = list(re.finditer(code_pattern, merged_text))
+
     items = []
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
-    for line in lines:
-        line = re.sub(r"\s+", " ", line)
+    for i, m in enumerate(matches):
+        code = m.group(1)
 
-        # 常見格式：1 N43-2 ENOX2 Clexane 2000IU... 80 SET 105.42 2026/04/02
-        m = re.search(
-            r"(?:^\d+\s+)?(?:[A-Z0-9\-]+\s+)?([A-Z]{1,4}[A-Z0-9]{2,6})\s+(.+?)\s+([0-9]+)\s*(SET|AMP|VIAL|盒|支|瓶|TAB|CAP)?(?:\s|$)",
-            line
-        )
+        # 排除不是品號的代碼
+        if code.startswith("BB"):
+            continue
+        if code in ["SET", "AMP", "VIAL", "TAB", "CAP", "EXP", "LOT"]:
+            continue
 
-        if m:
-            code = m.group(1).strip()
-            name = m.group(2).strip()
-            qty = int(m.group(3))
-            unit = m.group(4) or ""
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(merged_text)
+        segment = merged_text[start:end].strip()
 
-            if code.startswith("BB"):
-                continue
+        # 找數量 + 單位
+        qty_match = re.search(r"(.+?)\s+([0-9]+)\s*(SET|AMP|VIAL|盒|支|瓶|TAB|CAP)\b", segment)
 
-            if len(name) < 2:
-                continue
+        if qty_match:
+            name = qty_match.group(1).strip()
+            qty = int(qty_match.group(2))
 
-            items.append({
-                "採購單號": po_no,
-                "品號": code,
-                "藥名": name,
-                "標準藥名": name,
-                "學名": "",
-                "別名1": "",
-                "別名2": "",
-                "採購數量": qty,
-                "廠商": supplier,
-                "已驗收數量": 0,
-                "狀態": "待驗收"
-            })
+            # 清掉價格、日期等後段雜訊
+            name = re.sub(r"\s+", " ", name)
+            name = re.sub(r"^\d+\s*", "", name)
+
+            if len(name) >= 2:
+                items.append({
+                    "採購單號": po_no,
+                    "品號": code,
+                    "藥名": name,
+                    "標準藥名": name,
+                    "學名": "",
+                    "別名1": "",
+                    "別名2": "",
+                    "採購數量": qty,
+                    "廠商": supplier,
+                    "已驗收數量": 0,
+                    "狀態": "待驗收"
+                })
 
     df = pd.DataFrame(items)
 
@@ -181,14 +194,13 @@ def parse_po_ocr(text):
         df["學名"] = df["學名_主檔"].fillna("")
         df["別名1"] = df["別名1_主檔"].fillna("")
         df["別名2"] = df["別名2_主檔"].fillna("")
-        keep_cols = [
+
+        df = df[[
             "採購單號", "品號", "藥名", "標準藥名", "學名",
             "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
-        ]
-        df = df[keep_cols]
+        ]]
 
     return df
-
 
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "⓪ 藥品主檔",

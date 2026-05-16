@@ -152,10 +152,10 @@ def parse_po_ocr(text):
     items = []
 
     for _, row in master_df.iterrows():
-        code = str(row["品號"]).strip()
+    code = str(row["品號"]).strip()
 
-        if not code:
-            continue
+    if not code:
+        continue
 
     pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)"
     match = re.search(pattern, clean_ocr, re.IGNORECASE)
@@ -163,8 +163,8 @@ def parse_po_ocr(text):
     if match:
         qty = int(match.group(1))
 
-    if qty <= 0:
-        continue
+        if qty <= 0:
+            continue
 
         items.append({
             "採購單號": po_no,

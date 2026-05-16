@@ -1,7 +1,4 @@
-cd ~/Documents/GitHub/drug-receiving-app 2>/dev/null || cd ~/GitHub/drug-receiving-app 2>/dev/null || cd ~/drug-receiving-app
-cat > requirements.txt <<'EOF'
 streamlit
 pandas
 openpyxl
 Pillow
-EOF

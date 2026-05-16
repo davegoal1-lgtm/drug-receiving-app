@@ -201,51 +201,65 @@ tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 with tab0:
     st.subheader("⓪ 藥品主檔")
-    master_file = st.file_uploader("上傳藥品主檔 Excel", type=["xlsx", "xls"], key="master")
+    uploaded_master = st.file_uploader(
+    "上傳藥品主檔 Excel",
+    type=["xlsx", "xls", "csv"]
+)
 
-    if master_file:
-        raw = pd.read_excel(master_file)
-        st.dataframe(raw.head(20), use_container_width=True)
-        cols = raw.columns.tolist()
+if uploaded_master is not None:
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            code_col = st.selectbox("品號欄位", cols)
-        with c2:
-            name_col = st.selectbox("標準藥名欄位", cols)
-        with c3:
-            generic_col = st.selectbox("學名欄位", ["無"] + cols)
-
-        c4, c5 = st.columns(2)
-        with c4:
-            alias1_col = st.selectbox("別名1欄位", ["無"] + cols)
-        with c5:
-            alias2_col = st.selectbox("別名2欄位", ["無"] + cols)
-
-if st.button("載入藥品主檔"):
-    master_df = uploaded_master_df.copy()
-
-    master_df["品號"] = master_df[code_col].astype(str).str.strip()
-    master_df["標準藥名"] = master_df[name_col].astype(str)
-
-    if generic_col != "無":
-        master_df["學名"] = master_df[generic_col].astype(str)
+    if uploaded_master.name.endswith(".csv"):
+        uploaded_master_df = pd.read_csv(uploaded_master)
     else:
-        master_df["學名"] = ""
+        uploaded_master_df = pd.read_excel(uploaded_master)
 
-    if alias1_col != "無":
-        master_df["別名1"] = master_df[alias1_col].astype(str)
-    else:
-        master_df["別名1"] = ""
+    st.dataframe(uploaded_master_df.head(20), use_container_width=True)
 
-    if alias2_col != "無":
-        master_df["別名2"] = master_df[alias2_col].astype(str)
-    else:
-        master_df["別名2"] = ""
+    cols = uploaded_master_df.columns.tolist()
 
-    st.session_state["master_df"] = master_df
+    c1, c2, c3 = st.columns(3)
 
-    st.success("藥品主檔載入完成")
+    with c1:
+        code_col = st.selectbox("品號欄位", cols)
+
+    with c2:
+        name_col = st.selectbox("標準藥名欄位", cols)
+
+    with c3:
+        generic_col = st.selectbox("學名欄位", ["無"] + cols)
+
+    c4, c5 = st.columns(2)
+
+    with c4:
+        alias1_col = st.selectbox("別名1欄位", ["無"] + cols)
+
+    with c5:
+        alias2_col = st.selectbox("別名2欄位", ["無"] + cols)
+
+    if st.button("載入藥品主檔"):
+        master_df = uploaded_master_df.copy()
+
+        master_df["品號"] = master_df[code_col].astype(str).str.strip()
+        master_df["標準藥名"] = master_df[name_col].astype(str)
+
+        if generic_col != "無":
+            master_df["學名"] = master_df[generic_col].astype(str)
+        else:
+            master_df["學名"] = ""
+
+        if alias1_col != "無":
+            master_df["別名1"] = master_df[alias1_col].astype(str)
+        else:
+            master_df["別名1"] = ""
+
+        if alias2_col != "無":
+            master_df["別名2"] = master_df[alias2_col].astype(str)
+        else:
+            master_df["別名2"] = ""
+
+        st.session_state["master_df"] = master_df
+
+        st.success("藥品主檔載入完成")
 
     if st.session_state.master_df is not None:
         st.dataframe(st.session_state.master_df, use_container_width=True)

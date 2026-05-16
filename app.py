@@ -223,18 +223,24 @@ with tab0:
             alias2_col = st.selectbox("別名2欄位", ["無"] + cols)
 
 if st.button("載入藥品主檔"):
-    master_df = df.copy()
+    master_df = uploaded_master_df.copy()
 
-    master_df["品號"] = master_df[selected_code_col].astype(str).str.strip()
-    master_df["標準藥名"] = master_df[selected_name_col].astype(str)
+    master_df["品號"] = master_df[code_col].astype(str).str.strip()
+    master_df["標準藥名"] = master_df[name_col].astype(str)
 
-    if "學名" not in master_df.columns:
+    if generic_col != "無":
+        master_df["學名"] = master_df[generic_col].astype(str)
+    else:
         master_df["學名"] = ""
 
-    if "別名1" not in master_df.columns:
+    if alias1_col != "無":
+        master_df["別名1"] = master_df[alias1_col].astype(str)
+    else:
         master_df["別名1"] = ""
 
-    if "別名2" not in master_df.columns:
+    if alias2_col != "無":
+        master_df["別名2"] = master_df[alias2_col].astype(str)
+    else:
         master_df["別名2"] = ""
 
     st.session_state["master_df"] = master_df

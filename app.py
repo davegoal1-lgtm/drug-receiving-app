@@ -169,7 +169,7 @@ for _, row in master_df.iterrows():
 
     if df.empty:
         st.warning("採購單 OCR 沒抓到任何主檔品號")
-        return df
+    return df
 
     df = df.drop_duplicates(subset=["品號"])
 

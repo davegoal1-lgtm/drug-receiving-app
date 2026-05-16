@@ -163,10 +163,10 @@ def parse_po_ocr(text):
     if match:
         qty = int(match.group(1))
 
-            if qty <= 0:
+        if qty <= 0:
                 continue
 
-            items.append({
+        items.append({
                 "採購單號": po_no,
                 "品號": code,
                 "藥名": row["標準藥名"],
@@ -178,7 +178,7 @@ def parse_po_ocr(text):
                 "廠商": supplier,
                 "已驗收數量": 0,
                 "狀態": "待驗收"
-            })
+         })
 
     df = pd.DataFrame(items)
 

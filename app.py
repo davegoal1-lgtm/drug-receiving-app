@@ -147,7 +147,7 @@ if st.session_state["master_df"].empty:
 master_df = st.session_state["master_df"].copy()
 master_df["品號"] = master_df["品號"].astype(str).str.strip()
 
-    clean_ocr = re.sub(r"\s+", " ", text)
+clean_ocr = re.sub(r"\s+", " ", text)
 
     items = []
 

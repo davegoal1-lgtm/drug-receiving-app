@@ -122,63 +122,48 @@ def find_best_match(ocr_text, po_items):
     return best_row, best_score
 
 
-def parse_po_ocr(text):
-    po_no = extract_by_patterns(text, [
-        r"(BB[0-9]{6,})"
-    ])
+for _, row in master_df.iterrows():
+    code = str(row["品號"]).strip()
 
-    supplier = extract_by_patterns(text, [
-        r"(.+?股份有限公司)",
-        r"(.+?有限公司)"
-    ])
+    if not code:
+        continue
 
-    if "master_df" not in st.session_state:
-        st.error("請先載入藥品主檔")
-        return pd.DataFrame()
+    code_match = re.search(re.escape(code), clean_ocr, re.IGNORECASE)
 
-    if st.session_state["master_df"] is None:
-        st.error("請先載入藥品主檔")
-        return pd.DataFrame()
+    if not code_match:
+        continue
 
-    if st.session_state["master_df"].empty:
-        st.error("藥品主檔是空的")
-        return pd.DataFrame()
+    # 只取品號後面一小段，避免抓到下一個品項或其他欄位
+    segment = clean_ocr[code_match.end():code_match.end() + 160]
 
-    master_df = st.session_state["master_df"].copy()
-    master_df["品號"] = master_df["品號"].astype(str).str.strip()
+    # 抓 SET / VIAL / AMP / TAB / CAP 前面的數字
+    qty_match = re.search(
+        r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)",
+        segment,
+        re.IGNORECASE
+    )
 
-    clean_ocr = re.sub(r"\s+", " ", text)
+    if not qty_match:
+        continue
 
-    items = []
+    qty = int(qty_match.group(1))
 
-    for _, row in master_df.iterrows():
-        code = str(row["品號"]).strip()
+    if qty <= 0:
+        continue
 
-        if not code:
-            continue
-
-        pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)"
-        match = re.search(pattern, clean_ocr, re.IGNORECASE)
-
-        if match:
-            qty = int(match.group(1))
-
-            if qty <= 0:
-                continue
-
-            items.append({
-                "採購單號": po_no,
-                "品號": code,
-                "藥名": row["標準藥名"],
-                "標準藥名": row["標準藥名"],
-                "學名": row.get("學名", ""),
-                "別名1": row.get("別名1", ""),
-                "別名2": row.get("別名2", ""),
-                "採購數量": qty,
-                "廠商": supplier,
-                "已驗收數量": 0,
-                "狀態": "待驗收"
-            })
+    items.append({
+        "採購單號": po_no,
+        "品號": code,
+        "藥名": row["標準藥名"],
+        "標準藥名": row["標準藥名"],
+        "學名": row.get("學名", ""),
+        "別名1": row.get("別名1", ""),
+        "別名2": row.get("別名2", ""),
+        "採購數量": qty,
+        "廠商": supplier,
+        "已驗收數量": 0,
+        "狀態": "待驗收"
+    })
 
     df = pd.DataFrame(items)
 

@@ -1,6 +1,4 @@
 # app.py
-# HIS 驗收 OCR 版：藥品主檔 + 採購單 + 收貨單 OCR + HIS 匯出
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
@@ -12,12 +10,15 @@ from difflib import SequenceMatcher
 st.set_page_config(page_title="藥品 HIS 驗收 OCR App", page_icon="💊", layout="wide")
 
 st.title("💊 藥品 HIS 驗收 OCR App")
+st.caption("藥品主檔｜採購單 Excel/OCR 匯入｜收貨單 OCR｜HIS 驗收欄位｜Excel 匯出")
 
 for key, default in {
     "master_df": None,
     "po_df": None,
+    "po_ocr_text": "",
+    "po_ocr_df": None,
     "selected_po": None,
-    "ocr_text": "",
+    "delivery_ocr_text": "",
     "records": []
 }.items():
     if key not in st.session_state:
@@ -75,6 +76,11 @@ def extract_delivery_no(text):
     ])
 
 
+def ocr_image(image):
+    import pytesseract
+    return pytesseract.image_to_string(image, lang="eng+chi_tra")
+
+
 def get_received_total(po_no, item_code):
     return sum(
         int(r["驗收數量"])
@@ -107,10 +113,81 @@ def find_best_match(ocr_text, po_items):
         score = 0
         for c in candidates:
             if str(c).strip():
-                score = max(score, 1.0 if clean_text(c) in clean_text(ocr_text) else similarity(ocr_text, c))
+                score = max(
+                    score,
+                    1.0 if clean_text(c) in clean_text(ocr_text) else similarity(ocr_text, c)
+                )
         if score > best_score:
             best_row, best_score = row, score
     return best_row, best_score
+
+
+def parse_po_ocr(text):
+    po_no = extract_by_patterns(text, [
+        r"採購單號[:：\s]*([A-Z]{2}[0-9]+)",
+        r"(BB[0-9]{6,})"
+    ])
+
+    supplier = extract_by_patterns(text, [
+        r"廠商代號[:：\s]*[0-9]*\s*[\n\s]*(.+?股份有限公司)",
+        r"廠商[:：\s]*(.+?股份有限公司)",
+        r"供應商[:：\s]*(.+?股份有限公司)"
+    ])
+
+    items = []
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    for line in lines:
+        line = re.sub(r"\s+", " ", line)
+
+        # 常見格式：1 N43-2 ENOX2 Clexane 2000IU... 80 SET 105.42 2026/04/02
+        m = re.search(
+            r"(?:^\d+\s+)?(?:[A-Z0-9\-]+\s+)?([A-Z]{1,4}[A-Z0-9]{2,6})\s+(.+?)\s+([0-9]+)\s*(SET|AMP|VIAL|盒|支|瓶|TAB|CAP)?(?:\s|$)",
+            line
+        )
+
+        if m:
+            code = m.group(1).strip()
+            name = m.group(2).strip()
+            qty = int(m.group(3))
+            unit = m.group(4) or ""
+
+            if code.startswith("BB"):
+                continue
+
+            if len(name) < 2:
+                continue
+
+            items.append({
+                "採購單號": po_no,
+                "品號": code,
+                "藥名": name,
+                "標準藥名": name,
+                "學名": "",
+                "別名1": "",
+                "別名2": "",
+                "採購數量": qty,
+                "廠商": supplier,
+                "已驗收數量": 0,
+                "狀態": "待驗收"
+            })
+
+    df = pd.DataFrame(items)
+
+    if not df.empty and st.session_state.master_df is not None:
+        df["品號"] = df["品號"].astype(str).str.strip()
+        df = df.merge(st.session_state.master_df, on="品號", how="left", suffixes=("", "_主檔"))
+        df["標準藥名"] = df["標準藥名_主檔"].fillna(df["藥名"])
+        df["學名"] = df["學名_主檔"].fillna("")
+        df["別名1"] = df["別名1_主檔"].fillna("")
+        df["別名2"] = df["別名2_主檔"].fillna("")
+        keep_cols = [
+            "採購單號", "品號", "藥名", "標準藥名", "學名",
+            "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
+        ]
+        df = df[keep_cols]
+
+    return df
 
 
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -161,66 +238,110 @@ with tab0:
 
 with tab1:
     st.subheader("① 匯入採購單")
-    po_file = st.file_uploader("上傳採購單 Excel", type=["xlsx", "xls"], key="po")
 
-    if po_file:
-        raw = pd.read_excel(po_file)
-        st.dataframe(raw.head(20), use_container_width=True)
-        cols = raw.columns.tolist()
+    import_mode = st.radio(
+        "選擇匯入方式",
+        ["Excel 匯入", "圖片 OCR 匯入"],
+        horizontal=True
+    )
 
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            po_col = st.selectbox("採購單號欄位", cols)
-        with c2:
-            item_col = st.selectbox("品號欄位", cols)
-        with c3:
-            drug_col = st.selectbox("採購單藥名欄位", cols)
-        with c4:
-            qty_col = st.selectbox("採購數量欄位", cols)
+    if import_mode == "Excel 匯入":
+        po_file = st.file_uploader("上傳採購單 Excel", type=["xlsx", "xls"], key="po_excel")
 
-        supplier_col = st.selectbox("廠商欄位", ["無"] + cols)
+        if po_file:
+            raw = pd.read_excel(po_file)
+            st.dataframe(raw.head(20), use_container_width=True)
+            cols = raw.columns.tolist()
 
-        if st.button("載入 BB 採購單"):
-            df = raw.copy()
-            df = df[df[po_col].astype(str).str.startswith("BB")].copy()
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                po_col = st.selectbox("採購單號欄位", cols)
+            with c2:
+                item_col = st.selectbox("品號欄位", cols)
+            with c3:
+                drug_col = st.selectbox("採購單藥名欄位", cols)
+            with c4:
+                qty_col = st.selectbox("採購數量欄位", cols)
 
-            if df.empty:
-                st.error("找不到 BB 開頭採購單")
-            else:
-                df = df.rename(columns={
-                    po_col: "採購單號",
-                    item_col: "品號",
-                    drug_col: "藥名",
-                    qty_col: "採購數量"
-                })
-                df["品號"] = df["品號"].astype(str).str.strip()
-                df["採購數量"] = pd.to_numeric(df["採購數量"], errors="coerce").fillna(0).astype(int)
+            supplier_col = st.selectbox("廠商欄位", ["無"] + cols)
 
-                if supplier_col != "無":
-                    df = df.rename(columns={supplier_col: "廠商"})
+            if st.button("載入 BB 採購單"):
+                df = raw.copy()
+                df = df[df[po_col].astype(str).str.startswith("BB")].copy()
+
+                if df.empty:
+                    st.error("找不到 BB 開頭採購單")
                 else:
-                    df["廠商"] = ""
+                    df = df.rename(columns={
+                        po_col: "採購單號",
+                        item_col: "品號",
+                        drug_col: "藥名",
+                        qty_col: "採購數量"
+                    })
+                    df["品號"] = df["品號"].astype(str).str.strip()
+                    df["採購數量"] = pd.to_numeric(df["採購數量"], errors="coerce").fillna(0).astype(int)
 
-                if st.session_state.master_df is not None:
-                    df = df.merge(st.session_state.master_df, on="品號", how="left")
-                    df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
-                    df["學名"] = df["學名"].fillna("")
-                    df["別名1"] = df["別名1"].fillna("")
-                    df["別名2"] = df["別名2"].fillna("")
+                    if supplier_col != "無":
+                        df = df.rename(columns={supplier_col: "廠商"})
+                    else:
+                        df["廠商"] = ""
+
+                    if st.session_state.master_df is not None:
+                        df = df.merge(st.session_state.master_df, on="品號", how="left")
+                        df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
+                        df["學名"] = df["學名"].fillna("")
+                        df["別名1"] = df["別名1"].fillna("")
+                        df["別名2"] = df["別名2"].fillna("")
+                    else:
+                        df["標準藥名"] = df["藥名"]
+                        df["學名"] = ""
+                        df["別名1"] = ""
+                        df["別名2"] = ""
+
+                    df["已驗收數量"] = 0
+                    df["狀態"] = "待驗收"
+
+                    st.session_state.po_df = df[[
+                        "採購單號", "品號", "藥名", "標準藥名", "學名",
+                        "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
+                    ]]
+                    st.success("Excel 採購單已載入")
+
+    else:
+        po_img = st.file_uploader("上傳採購單圖片", type=["png", "jpg", "jpeg"], key="po_img")
+
+        if po_img:
+            image = Image.open(po_img)
+            st.image(image, caption="採購單圖片", use_container_width=True)
+
+            if st.button("開始辨識採購單 OCR"):
+                try:
+                    text = ocr_image(image)
+                    st.session_state.po_ocr_text = text
+                    st.session_state.po_ocr_df = parse_po_ocr(text)
+                    st.success("採購單 OCR 完成")
+                except Exception as e:
+                    st.error("採購單 OCR 失敗")
+                    st.warning("Streamlit Cloud 請確認 packages.txt 已包含 tesseract-ocr 與 tesseract-ocr-chi-tra")
+                    st.code(str(e))
+
+        if st.session_state.po_ocr_text:
+            st.text_area("採購單 OCR 原文", value=st.session_state.po_ocr_text, height=220)
+
+        if st.session_state.po_ocr_df is not None:
+            st.markdown("### OCR 解析出的採購單明細")
+            edited_df = st.data_editor(
+                st.session_state.po_ocr_df,
+                use_container_width=True,
+                num_rows="dynamic"
+            )
+
+            if st.button("確認載入 OCR 採購單"):
+                if edited_df.empty:
+                    st.error("沒有可載入的採購單明細")
                 else:
-                    df["標準藥名"] = df["藥名"]
-                    df["學名"] = ""
-                    df["別名1"] = ""
-                    df["別名2"] = ""
-
-                df["已驗收數量"] = 0
-                df["狀態"] = "待驗收"
-
-                st.session_state.po_df = df[[
-                    "採購單號", "品號", "藥名", "標準藥名", "學名",
-                    "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
-                ]]
-                st.success("採購單已載入")
+                    st.session_state.po_df = edited_df.copy()
+                    st.success("OCR 採購單已載入")
 
 with tab2:
     st.subheader("② 選擇採購單")
@@ -232,6 +353,7 @@ with tab2:
         st.session_state.selected_po = selected_po
 
         df = st.session_state.po_df[st.session_state.po_df["採購單號"].astype(str) == selected_po].copy()
+
         rows = []
         for _, row in df.iterrows():
             received = get_received_total(row["採購單號"], row["品號"])
@@ -243,28 +365,27 @@ with tab2:
 
 with tab3:
     st.subheader("③ 收貨單 OCR")
-    ocr_file = st.file_uploader("上傳收貨單圖片", type=["png", "jpg", "jpeg"], key="ocr")
+    ocr_file = st.file_uploader("上傳收貨單圖片", type=["png", "jpg", "jpeg"], key="delivery_img")
 
     if ocr_file:
         image = Image.open(ocr_file)
         st.image(image, caption="收貨單", use_container_width=True)
 
-        if st.button("開始 OCR"):
+        if st.button("開始收貨單 OCR"):
             try:
-                import pytesseract
-                st.session_state.ocr_text = pytesseract.image_to_string(image, lang="eng+chi_tra")
-                st.success("OCR 完成")
+                st.session_state.delivery_ocr_text = ocr_image(image)
+                st.success("收貨單 OCR 完成")
             except Exception as e:
-                st.error("OCR 失敗")
-                st.warning("Mac 本機需先安裝：brew install tesseract tesseract-lang")
+                st.error("收貨單 OCR 失敗")
+                st.warning("請確認 packages.txt 與 requirements.txt 設定正確")
                 st.code(str(e))
 
-    if st.session_state.ocr_text:
-        st.text_area("OCR 原文", value=st.session_state.ocr_text, height=250)
-        st.info(f"批號：{extract_lot(st.session_state.ocr_text) or '未抓到'}")
-        st.info(f"有效日期：{extract_expiry(st.session_state.ocr_text) or '未抓到'}")
-        st.info(f"出貨數量：{extract_quantity(st.session_state.ocr_text) or '未抓到'}")
-        st.info(f"收貨單號：{extract_delivery_no(st.session_state.ocr_text) or '未抓到'}")
+    if st.session_state.delivery_ocr_text:
+        st.text_area("收貨單 OCR 原文", value=st.session_state.delivery_ocr_text, height=250)
+        st.info(f"批號：{extract_lot(st.session_state.delivery_ocr_text) or '未抓到'}")
+        st.info(f"有效日期：{extract_expiry(st.session_state.delivery_ocr_text) or '未抓到'}")
+        st.info(f"出貨數量：{extract_quantity(st.session_state.delivery_ocr_text) or '未抓到'}")
+        st.info(f"收貨單號：{extract_delivery_no(st.session_state.delivery_ocr_text) or '未抓到'}")
 
 with tab4:
     st.subheader("④ HIS 驗收確認")
@@ -276,7 +397,7 @@ with tab4:
             st.session_state.po_df["採購單號"].astype(str) == str(st.session_state.selected_po)
         ].copy()
 
-        matched_row, score = find_best_match(st.session_state.ocr_text, po_items) if st.session_state.ocr_text else (None, 0)
+        matched_row, score = find_best_match(st.session_state.delivery_ocr_text, po_items) if st.session_state.delivery_ocr_text else (None, 0)
 
         if matched_row is not None and score >= 0.30:
             st.success(f"建議品項：{matched_row['品號']}｜{matched_row['標準藥名']}｜相似度 {score:.2f}")
@@ -309,15 +430,20 @@ with tab4:
 
         c4, c5, c6 = st.columns(3)
         with c4:
-            delivery_no = st.text_input("收貨單號", value=extract_delivery_no(st.session_state.ocr_text))
+            delivery_no = st.text_input("收貨單號", value=extract_delivery_no(st.session_state.delivery_ocr_text))
         with c5:
-            lot_no = st.text_input("批號", value=extract_lot(st.session_state.ocr_text))
+            lot_no = st.text_input("批號", value=extract_lot(st.session_state.delivery_ocr_text))
         with c6:
-            expiry = st.text_input("有效日期", value=extract_expiry(st.session_state.ocr_text))
+            expiry = st.text_input("有效日期", value=extract_expiry(st.session_state.delivery_ocr_text))
 
         c7, c8, c9 = st.columns(3)
         with c7:
-            receive_qty = st.number_input("驗收數量", min_value=0, step=1, value=extract_quantity(st.session_state.ocr_text) or 0)
+            receive_qty = st.number_input(
+                "驗收數量",
+                min_value=0,
+                step=1,
+                value=extract_quantity(st.session_state.delivery_ocr_text) or 0
+            )
         with c8:
             inspector = st.text_input("驗收人")
         with c9:
@@ -359,7 +485,7 @@ with tab4:
                     "累計驗收數量": after,
                     "狀態": status,
                     "備註": note,
-                    "OCR原文": st.session_state.ocr_text
+                    "收貨單OCR原文": st.session_state.delivery_ocr_text
                 })
                 st.success("已寫入驗收紀錄")
                 st.rerun()
@@ -377,6 +503,7 @@ with tab5:
             "採購單號", "品號", "批號", "有效日期", "驗收數量",
             "廠商", "收貨單號", "驗收人", "驗收日期"
         ]
+
         his_df = result_df[his_cols]
 
         output = BytesIO()

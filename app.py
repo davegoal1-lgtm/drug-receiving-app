@@ -154,8 +154,8 @@ def parse_po_ocr(text):
     for _, row in master_df.iterrows():
         code = str(row["品號"]).strip()
 
-    if not code:
-        continue
+        if not code:
+            continue
 
     pattern = rf"{re.escape(code)}.*?([0-9]{{1,5}})\s*(SET|VIAL|AMP|TAB|CAP|盒|支|瓶)"
     match = re.search(pattern, clean_ocr, re.IGNORECASE)

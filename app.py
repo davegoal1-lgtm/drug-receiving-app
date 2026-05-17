@@ -516,24 +516,28 @@ with tab3:
                 st.warning("請確認 packages.txt 與 requirements.txt 設定正確")
                 st.code(str(e))
 
-   if st.session_state.delivery_ocr_text:
-    text = st.session_state.delivery_ocr_text
+         if st.session_state.delivery_ocr_text:
+            text = st.session_state.delivery_ocr_text
 
-    st.text_area("收貨單 OCR 原文", value=text, height=250)
+            st.text_area(
+                "收貨單 OCR 原文",
+                value=text,
+                height=250
+            )
 
-    matched_drug, drug_score = match_delivery_drug_from_master(text)
+            matched_drug, drug_score = match_delivery_drug_from_master(text)
 
-    if matched_drug is not None and drug_score >= 0.35:
-        st.success(
-            f"辨識藥品：{matched_drug['品號']}｜{matched_drug['標準品名']}｜相似度 {drug_score:.2f}"
-        )
-    else:
-        st.warning("收貨單 OCR 尚未明確對應到藥品主檔")
+            if matched_drug is not None and drug_score >= 0.35:
+                st.success(
+                    f"辨識藥品：{matched_drug['品號']}｜{matched_drug['標準品名']}｜相似度 {drug_score:.2f}"
+                )
+            else:
+                st.warning("收貨單 OCR 尚未明確對應到藥品主檔")
 
-    st.info(f"批號：{extract_delivery_lot(text) or '未抓到'}")
-    st.info(f"有效日期：{extract_delivery_expiry(text) or '未抓到'}")
-    st.info(f"出貨數量：{extract_delivery_qty(text) or '未抓到'}")
-    st.info(f"收貨單號：{extract_delivery_no(text) or '未抓到'}")
+            st.info(f"批號：{extract_delivery_lot(text) or '未抓到'}")
+            st.info(f"有效日期：{extract_delivery_expiry(text) or '未抓到'}")
+            st.info(f"出貨數量：{extract_delivery_qty(text) or '未抓到'}")
+            st.info(f"收貨單號：{extract_delivery_no(text) or '未抓到'}")
 
 with tab4:
     st.subheader("④ HIS 驗收確認")

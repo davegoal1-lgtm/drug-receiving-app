@@ -648,7 +648,7 @@ with tab3:
 
         if matched_drug is not None and score >= 0.35:
             st.success(
-                f"對應主檔：{matched_drug['品號']}｜{matched_drug['標準品名']}｜相似度 {score:.2f}"
+                f"對應主檔：{matched_drug['品號']}｜{matched_drug['品號']}｜相似度 {score:.2f}"
             )
             st.session_state.delivery_matched_code = str(matched_drug["品號"])
         else:

@@ -143,7 +143,6 @@ def match_delivery_drug_from_master(ocr_text):
     for _, row in master_df.iterrows():
         candidates = [
             row.get("品號", ""),
-            row.get("標準品名", ""),
             row.get("品名", ""),
             row.get("學名", ""),
             row.get("中文藥名", ""),

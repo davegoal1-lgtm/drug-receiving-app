@@ -167,6 +167,105 @@ def match_delivery_drug_from_master(ocr_text):
 
     return best_row, best_score
 
+def ai_parse_delivery_image(image_file):
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+    image_bytes = image_file.getvalue()
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    prompt = """
+你是醫院藥品驗收單 OCR 專家。
+請從收貨單/藥品購買憑證圖片中擷取資料。
+
+只回傳 JSON，不要解釋。
+
+欄位：
+drug_name: 藥品名稱
+quantity: 出貨數量，數字
+lot: 批號
+expiry: 有效日期或效期，格式 YYYY/MM/DD
+delivery_no: 收貨單號或出貨單號
+vendor: 廠商名稱
+
+如果看不到就填空字串或 0。
+"""
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{image_b64}"
+                    }
+                ]
+            }
+        ]
+    )
+
+    text = response.output_text.strip()
+
+    text = text.replace("```json", "").replace("```", "").strip()
+
+    try:
+        return json.loads(text)
+    except Exception:
+        return {
+            "drug_name": "",
+            "quantity": 0,
+            "lot": "",
+            "expiry": "",
+            "delivery_no": "",
+            "vendor": "",
+            "raw": text
+        }
+
+
+def match_ai_drug_name_to_master(drug_name):
+    if "master_df" not in st.session_state:
+        return None, 0
+
+    if st.session_state["master_df"] is None:
+        return None, 0
+
+    master_df = st.session_state["master_df"].copy()
+
+    best_row = None
+    best_score = 0
+
+    for _, row in master_df.iterrows():
+        candidates = [
+            row.get("標準品名", ""),
+            row.get("品名", ""),
+            row.get("學名", ""),
+            row.get("中文藥名", ""),
+            row.get("別名1", ""),
+            row.get("別名2", "")
+        ]
+
+        for c in candidates:
+            c = str(c).strip()
+
+            if not c or c == "nan":
+                continue
+
+            score = similarity(drug_name, c)
+
+            if clean_text(c) in clean_text(drug_name) or clean_text(drug_name) in clean_text(c):
+                score = max(score, 1.0)
+
+            if score > best_score:
+                best_score = score
+                best_row = row
+
+    return best_row, best_score
+
+
+
+
 def ocr_image(image):
     import pytesseract
     return pytesseract.image_to_string(image, lang="eng+chi_tra")

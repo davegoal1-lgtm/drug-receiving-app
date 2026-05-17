@@ -74,7 +74,95 @@ def extract_delivery_no(text):
         r"收貨單號[:：\s]*([A-Za-z0-9\-]+)",
         r"送貨單號[:：\s]*([A-Za-z0-9\-]+)"
     ])
+def extract_delivery_qty(text):
+    patterns = [
+        r"出貨數量[:：\s]*([0-9]+)",
+        r"數量[:：\s]*([0-9]+)",
+        r"QTY[:：\s]*([0-9]+)",
+        r"([0-9]{1,5})\s*(SET|VIAL|AMP|TAB|CAP|BOX|BAG|BT|PK|支|盒|瓶|袋)"
+    ]
 
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+
+    return 0
+
+
+def extract_delivery_expiry(text):
+    patterns = [
+        r"有效日期[:：\s]*([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})",
+        r"有效期限[:：\s]*([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})",
+        r"效期[:：\s]*([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})",
+        r"EXP[:：\s]*([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})",
+        r"([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})"
+    ]
+
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+
+    return ""
+
+
+def extract_delivery_lot(text):
+    patterns = [
+        r"批號[:：\s]*([A-Za-z0-9\-]+)",
+        r"LOT[:：\s]*([A-Za-z0-9\-]+)",
+        r"Lot[:：\s]*([A-Za-z0-9\-]+)",
+        r"Batch[:：\s]*([A-Za-z0-9\-]+)"
+    ]
+
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+
+    return ""
+
+
+def match_delivery_drug_from_master(ocr_text):
+    if "master_df" not in st.session_state:
+        return None, 0
+
+    if st.session_state["master_df"] is None:
+        return None, 0
+
+    master_df = st.session_state["master_df"].copy()
+
+    best_row = None
+    best_score = 0
+
+    ocr_clean = clean_text(ocr_text)
+
+    for _, row in master_df.iterrows():
+        candidates = [
+            row.get("品號", ""),
+            row.get("標準品名", ""),
+            row.get("品名", ""),
+            row.get("學名", ""),
+            row.get("中文藥名", ""),
+            row.get("別名1", ""),
+            row.get("別名2", "")
+        ]
+
+        for c in candidates:
+            c = str(c).strip()
+            if not c or c == "nan":
+                continue
+
+            if clean_text(c) in ocr_clean:
+                score = 1.0
+            else:
+                score = similarity(ocr_text, c)
+
+            if score > best_score:
+                best_score = score
+                best_row = row
+
+    return best_row, best_score
 
 def ocr_image(image):
     import pytesseract

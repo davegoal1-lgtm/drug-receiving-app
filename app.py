@@ -516,7 +516,7 @@ with tab3:
                 st.warning("請確認 packages.txt 與 requirements.txt 設定正確")
                 st.code(str(e))
 
-    if st.session_state.delivery_ocr_text:
+   if st.session_state.delivery_ocr_text:
     text = st.session_state.delivery_ocr_text
 
     st.text_area("收貨單 OCR 原文", value=text, height=250)

@@ -507,7 +507,7 @@ with tab3:
         image = Image.open(ocr_file)
         st.image(image, caption="收貨單", use_container_width=True)
 
-        if st.button("開始收貨單 OCR"):
+         if st.button("開始收貨單 OCR"):
             try:
                 st.session_state.delivery_ocr_text = ocr_image(image)
                 st.success("收貨單 OCR 完成")
@@ -516,7 +516,7 @@ with tab3:
                 st.warning("請確認 packages.txt 與 requirements.txt 設定正確")
                 st.code(str(e))
 
-         if st.session_state.delivery_ocr_text:
+    if st.session_state.delivery_ocr_text:
             text = st.session_state.delivery_ocr_text
 
             st.text_area(

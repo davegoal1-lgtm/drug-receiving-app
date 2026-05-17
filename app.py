@@ -6,6 +6,9 @@ from io import BytesIO
 from PIL import Image
 import re
 from difflib import SequenceMatcher
+import base64
+import json
+from openai import OpenAI
 
 st.set_page_config(page_title="藥品 HIS 驗收 OCR App", page_icon="💊", layout="wide")
 

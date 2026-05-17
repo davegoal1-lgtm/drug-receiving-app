@@ -602,7 +602,7 @@ with tab2:
         st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
 with tab3:
-    st.subheader("③ 收貨單 OCR")
+    st.subheader("③ 收貨單 AI OCR")
 
     ocr_file = st.file_uploader(
         "上傳收貨單圖片",
@@ -614,38 +614,54 @@ with tab3:
         image = Image.open(ocr_file)
         st.image(image, caption="收貨單", use_container_width=True)
 
-        if st.button("開始收貨單 OCR"):
+        if st.button("開始 AI 辨識收貨單"):
             try:
-                st.session_state.delivery_ocr_text = ocr_image(image)
-                st.success("收貨單 OCR 完成")
+                ai_result = ai_parse_delivery_image(ocr_file)
+
+                st.session_state.delivery_ai_result = ai_result
+                st.session_state.delivery_ocr_text = json.dumps(
+                    ai_result,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
+                st.success("AI 收貨單辨識完成")
+
             except Exception as e:
-                st.error("收貨單 OCR 失敗")
-                st.warning("請確認 packages.txt 與 requirements.txt 設定正確")
+                st.error("AI 收貨單辨識失敗")
                 st.code(str(e))
 
-    if st.session_state.delivery_ocr_text:
-        text = st.session_state.delivery_ocr_text
+    if "delivery_ai_result" in st.session_state:
+        result = st.session_state.delivery_ai_result
 
-        st.text_area(
-            "收貨單 OCR 原文",
-            value=text,
-            height=250
-        )
+        st.markdown("### AI 辨識結果")
+        st.json(result)
 
-        matched_drug, drug_score = match_delivery_drug_from_master(text)
+        drug_name = result.get("drug_name", "")
+        qty = result.get("quantity", 0)
+        lot = result.get("lot", "")
+        expiry = result.get("expiry", "")
+        delivery_no = result.get("delivery_no", "")
+        vendor = result.get("vendor", "")
 
-        if matched_drug is not None and drug_score >= 0.35:
+        matched_drug, score = match_ai_drug_name_to_master(drug_name)
+
+        if matched_drug is not None and score >= 0.35:
             st.success(
-                f"辨識藥品：{matched_drug['品號']}｜{matched_drug['標準品名']}｜相似度 {drug_score:.2f}"
+                f"對應主檔：{matched_drug['品號']}｜{matched_drug['標準品名']}｜相似度 {score:.2f}"
             )
+            st.session_state.delivery_matched_code = str(matched_drug["品號"])
         else:
-            st.warning("收貨單 OCR 尚未明確對應到藥品主檔")
+            st.warning("AI 已辨識藥名，但尚未明確對應到藥品主檔")
+            st.session_state.delivery_matched_code = ""
 
-        st.info(f"批號：{extract_delivery_lot(text) or '未抓到'}")
-        st.info(f"有效日期：{extract_delivery_expiry(text) or '未抓到'}")
-        st.info(f"出貨數量：{extract_delivery_qty(text) or '未抓到'}")
-        st.info(f"收貨單號：{extract_delivery_no(text) or '未抓到'}")
-
+        st.info(f"AI藥品名稱：{drug_name or '未抓到'}")
+        st.info(f"品號：{st.session_state.delivery_matched_code or '未對應'}")
+        st.info(f"數量：{qty or '未抓到'}")
+        st.info(f"批號：{lot or '未抓到'}")
+        st.info(f"有效日期：{expiry or '未抓到'}")
+        st.info(f"收貨單號：{delivery_no or '未抓到'}")
+        st.info(f"廠商：{vendor or '未抓到'}")
 with tab4:
     st.subheader("④ HIS 驗收確認")
 

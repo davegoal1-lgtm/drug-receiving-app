@@ -580,6 +580,57 @@ with tab1:
                     st.session_state.po_df = edited_df.copy()
                     st.success("OCR 採購單已載入")
 
+st.header("採購單 Excel 匯入")
+
+po_file = st.file_uploader(
+    "上傳採購單匯出 Excel",
+    type=["xlsx", "xls"],
+    key="po_excel"
+)
+
+if po_file is not None:
+    # 讀取採購單
+    xls = pd.ExcelFile(po_file)
+    sheet_name = xls.sheet_names[0]
+    df = pd.read_excel(po_file, sheet_name=sheet_name)
+
+    st.subheader("原始採購單資料")
+    st.dataframe(df)
+
+    # 欄位轉換成驗收需要格式
+    result = pd.DataFrame()
+
+    result["採購單號"] = df["採購單號"]
+    result["廠商名稱"] = df["廠商名稱"]
+    result["品號"] = df["品號"]
+    result["品名"] = df["品名/規格"]
+    result["採購數量"] = df["採購數量"]
+    result["單位"] = df["採購單位"]
+    result["單價"] = df["單價"]
+    result["採購日期"] = df["採購日期"]
+    result["預計交期"] = df["預計交期"]
+
+    # 給驗收時人工補入或 OCR 帶入
+    result["實收數量"] = ""
+    result["批號"] = ""
+    result["效期"] = ""
+    result["發票號碼"] = ""
+    result["驗收備註"] = ""
+
+    st.subheader("轉換後驗收格式")
+    st.dataframe(result)
+
+    # 匯出 Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        result.to_excel(writer, index=False, sheet_name="驗收匯入格式")
+
+    st.download_button(
+        label="下載驗收匯入 Excel",
+        data=output.getvalue(),
+        file_name="驗收匯入格式.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 with tab2:
     st.subheader("② 選擇採購單")
     if st.session_state.po_df is None:

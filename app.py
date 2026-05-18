@@ -483,7 +483,7 @@ with tab1:
     )
 
     if import_mode == "Excel 匯入":
-        po_file = st.file_uploader("上傳採購單 Excel", type=["xlsx", "xls"], key="po_excel")
+        po_file = st.file_uploader("上傳採購單 Excel", type=["xlsx", "xls"], key="po_excel_upload_2")
 
         if po_file:
             raw = pd.read_excel(po_file)

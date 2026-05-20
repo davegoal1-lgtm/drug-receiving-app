@@ -494,11 +494,15 @@ with tab1:
             with c1:
                 po_col = st.selectbox("採購單號欄位", cols)
             with c2:
-                item_col = st.selectbox("品號欄位", cols)
+                po_date_col = st.selectbox("採購日期欄位", cols)
             with c3:
-                drug_col = st.selectbox("採購單藥名欄位", cols)
+                item_col = st.selectbox("品號欄位", cols)
             with c4:
+                drug_col = st.selectbox("採購單藥名欄位", cols)
+            with c5:
                 qty_col = st.selectbox("採購數量欄位", cols)
+          
+                
 
             supplier_col = st.selectbox("廠商欄位", ["無"] + cols)
 
@@ -511,6 +515,7 @@ with tab1:
                 else:
                     df = df.rename(columns={
                         po_col: "採購單號",
+                        po_date_col: "採購日期",
                         item_col: "品號",
                         drug_col: "藥名",
                         qty_col: "採購數量"
@@ -539,7 +544,7 @@ with tab1:
                     df["狀態"] = "待驗收"
 
                     st.session_state.po_df = df[[
-                        "採購單號", "品號", "藥名", "標準藥名", "學名",
+                        "採購日期", "採購單號", "品號", "藥名", "標準藥名", "學名",
                         "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
                     ]]
                     st.success("Excel 採購單已載入")

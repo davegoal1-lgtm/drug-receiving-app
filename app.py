@@ -541,7 +541,7 @@ with tab1:
                     df["別名2"] = df["別名2"].fillna("")
                 else:
                     df["標準藥名"] = df["藥名"]
-                    for col in ["學名", "別名1", "別名2"]:
+                for col in ["學名", "別名1", "別名2"]:
                     if col not in df.columns:
                     df[col] = ""
                 else:

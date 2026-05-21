@@ -587,25 +587,36 @@ with tab1:
 
 
 with tab2:
-    st.subheader("② 選擇採購單")
+    st.subheader("② 選擇採購日期")
+
     if st.session_state.po_df is None:
         st.warning("請先匯入採購單")
     else:
-        po_list = st.session_state.po_df["採購單號"].astype(str).unique().tolist()
-        selected_po = st.selectbox("選擇採購單號", po_list)
-        st.session_state.selected_po = selected_po
+        df = st.session_state.po_df.copy()
+        df["採購日期"] = pd.to_datetime(df["採購日期"], errors="coerce").dt.date
 
-        df = st.session_state.po_df[st.session_state.po_df["採購單號"].astype(str) == selected_po].copy()
+        selected_date = st.date_input("選擇採購日期", value=date.today())
 
-        rows = []
-        for _, row in df.iterrows():
-            received = get_received_total(row["採購單號"], row["品號"])
-            row["已驗收數量"] = received
-            row["狀態"] = make_status(int(row["採購數量"]), received)
-            rows.append(row)
+        date_df = df[df["採購日期"] == selected_date].copy()
 
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        if date_df.empty:
+            st.warning("這一天沒有採購單")
+        else:
+            po_list = date_df["採購單號"].astype(str).unique().tolist()
 
+            selected_po = st.selectbox("選擇當日採購單號", po_list)
+            st.session_state.selected_po = selected_po
+
+            show_df = date_df[date_df["採購單號"].astype(str) == selected_po].copy()
+
+            rows = []
+            for _, row in show_df.iterrows():
+                received = get_received_total(row["採購單號"], row["品號"])
+                row["已驗收數量"] = received
+                row["狀態"] = make_status(int(row["採購數量"]), received)
+                rows.append(row)
+
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
 with tab3:
     st.subheader("③ 收貨單 AI OCR")
 

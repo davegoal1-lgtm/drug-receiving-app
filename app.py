@@ -541,9 +541,11 @@ with tab1:
                     df["別名2"] = df["別名2"].fillna("")
                 else:
                     df["標準藥名"] = df["藥名"]
-                    df["學名"] = ""
-                    df["別名1"] = ""
-                    df["別名2"] = ""
+                    for col in ["學名", "別名1", "別名2"]:
+                    if col not in df.columns:
+                    df[col] = ""
+                else:
+                    df[col] = df[col].fillna("")
 
                 df["已驗收數量"] = 0
                 df["狀態"] = "待驗收"

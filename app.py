@@ -509,9 +509,9 @@ with tab1:
    
                 
 
-            if st.button("載入 BB 採購單"):
-                df = raw.copy()
-                df = df[df[po_col].astype(str).str.startswith("BB")].copy()
+    if st.button("載入 BB 採購單"):
+        df = raw.copy()
+        df = df[df[po_col].astype(str).str.startswith("BB")].copy()
 
                 if df.empty:
                     st.error("找不到 BB 開頭採購單")

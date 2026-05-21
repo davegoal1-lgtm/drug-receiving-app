@@ -490,18 +490,23 @@ with tab1:
             st.dataframe(raw.head(20), use_container_width=True)
             cols = raw.columns.tolist()
 
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                po_col = st.selectbox("採購單號欄位", cols)
-            with c2:
-                po_date_col = st.selectbox("採購日期欄位", cols)
-            with c3:
-                item_col = st.selectbox("品號欄位", cols)
-            with c4:
-                drug_col = st.selectbox("採購單藥名欄位", cols)
-            with c5:
-                qty_col = st.selectbox("採購數量欄位", cols)
-          
+            # 自動抓固定欄位
+            po_col = "採購單號"
+            po_date_col = "採購日期"
+            item_col = "品號"
+            drug_col = "品名"
+            qty_col = "採購數量"
+            supplier_col = "廠商名稱"
+
+            # 檢查欄位是否存在
+            required_cols = [po_col, po_date_col]
+
+            missing = [c for c in required_cols if c not in cols]
+
+    if missing:
+         st.error(f"Excel 缺少欄位: {missing}")
+         st.stop()
+   
                 
 
             supplier_col = st.selectbox("廠商欄位", ["無"] + cols)

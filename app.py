@@ -494,7 +494,7 @@ with tab1:
             po_col = "採購單號"
             po_date_col = "採購日期"
             item_col = "品號"
-            drug_col = "品名"
+            drug_col = "品名/規格"
             qty_col = "採購數量"
             supplier_col = "廠商名稱"
 
@@ -538,9 +538,6 @@ with tab1:
 
                 if "標準藥名" not in df.columns:
                     df["標準藥名"] = df["藥名"]
-                else:
-                    df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
-
                 for col in ["學名", "別名1", "別名2"]:
                     if col not in df.columns:
                         df[col] = ""

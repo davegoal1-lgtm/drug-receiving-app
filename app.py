@@ -499,13 +499,14 @@ with tab1:
             supplier_col = "廠商名稱"
 
             # 檢查欄位是否存在
-            required_cols = [po_col, po_date_col]
-
-            missing = [c for c in required_cols if c not in cols]
+            
+   
+    required_cols = [po_col, po_date_col]
+    missing = [c for c in required_cols if c not in cols]
 
     if missing:
-         st.error(f"Excel 缺少欄位: {missing}")
-         st.stop()
+        st.error(f"Excel 缺少欄位: {missing}")
+        st.stop()
    
                 
 

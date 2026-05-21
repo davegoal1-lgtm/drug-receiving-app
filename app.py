@@ -543,7 +543,7 @@ with tab1:
                     df["標準藥名"] = df["藥名"]
                 for col in ["學名", "別名1", "別名2"]:
                     if col not in df.columns:
-                    df[col] = ""
+                        df[col] = ""
                 else:
                     df[col] = df[col].fillna("")
 

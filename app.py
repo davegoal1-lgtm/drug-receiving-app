@@ -510,47 +510,49 @@ with tab1:
                 
 
     if st.button("載入 BB 採購單"):
-        df = raw.copy()
-        df = df[df[po_col].astype(str).str.startswith("BB")].copy()
+    df = raw.copy()
+    df = df[df[po_col].astype(str).str.startswith("BB")].copy()
 
-        if df.empty:
-            st.error("找不到 BB 開頭採購單")
+    if df.empty:
+        st.error("找不到 BB 開頭採購單")
+    else:
+        df = df.rename(columns={
+            po_col: "採購單號",
+            po_date_col: "採購日期",
+            item_col: "品號",
+            drug_col: "藥名",
+            qty_col: "採購數量"
+        })
+
+        df["品號"] = df["品號"].astype(str).str.strip()
+        df["採購數量"] = pd.to_numeric(df["採購數量"], errors="coerce").fillna(0).astype(int)
+
+        if supplier_col != "無" and supplier_col in df.columns:
+            df = df.rename(columns={supplier_col: "廠商"})
         else:
-            df = df.rename(columns={
-                po_col: "採購單號",
-                o_date_col: "採購日期",
-                item_col: "品號",
-                drug_col: "藥名",
-                qty_col: "採購數量"
-            })
-                    df["品號"] = df["品號"].astype(str).str.strip()
-                    df["採購數量"] = pd.to_numeric(df["採購數量"], errors="coerce").fillna(0).astype(int)
+            df["廠商"] = ""
 
-                    if supplier_col != "無":
-                        df = df.rename(columns={supplier_col: "廠商"})
-                    else:
-                        df["廠商"] = ""
+        if st.session_state.master_df is not None:
+            df = df.merge(st.session_state.master_df, on="品號", how="left")
+            df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
+            df["學名"] = df["學名"].fillna("")
+            df["別名1"] = df["別名1"].fillna("")
+            df["別名2"] = df["別名2"].fillna("")
+        else:
+            df["標準藥名"] = df["藥名"]
+            df["學名"] = ""
+            df["別名1"] = ""
+            df["別名2"] = ""
 
-                    if st.session_state.master_df is not None:
-                        df = df.merge(st.session_state.master_df, on="品號", how="left")
-                        df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
-                        df["學名"] = df["學名"].fillna("")
-                        df["別名1"] = df["別名1"].fillna("")
-                        df["別名2"] = df["別名2"].fillna("")
-                    else:
-                        df["標準藥名"] = df["藥名"]
-                        df["學名"] = ""
-                        df["別名1"] = ""
-                        df["別名2"] = ""
+        df["已驗收數量"] = 0
+        df["狀態"] = "待驗收"
 
-                    df["已驗收數量"] = 0
-                    df["狀態"] = "待驗收"
+        st.session_state.po_df = df[[
+            "採購日期", "採購單號", "品號", "藥名", "標準藥名", "學名",
+            "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
+        ]]
 
-                    st.session_state.po_df = df[[
-                        "採購日期", "採購單號", "品號", "藥名", "標準藥名", "學名",
-                        "別名1", "別名2", "採購數量", "廠商", "已驗收數量", "狀態"
-                    ]]
-                    st.success("Excel 採購單已載入")
+        st.success("Excel 採購單已載入")
 
     else:
         po_img = st.file_uploader("上傳採購單圖片", type=["png", "jpg", "jpeg"], key="po_img")

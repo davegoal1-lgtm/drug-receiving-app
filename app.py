@@ -513,16 +513,16 @@ with tab1:
         df = raw.copy()
         df = df[df[po_col].astype(str).str.startswith("BB")].copy()
 
-                if df.empty:
-                    st.error("找不到 BB 開頭採購單")
-                else:
-                    df = df.rename(columns={
-                        po_col: "採購單號",
-                        po_date_col: "採購日期",
-                        item_col: "品號",
-                        drug_col: "藥名",
-                        qty_col: "採購數量"
-                    })
+        if df.empty:
+            st.error("找不到 BB 開頭採購單")
+        else:
+            df = df.rename(columns={
+                po_col: "採購單號",
+                o_date_col: "採購日期",
+                item_col: "品號",
+                drug_col: "藥名",
+                qty_col: "採購數量"
+            })
                     df["品號"] = df["品號"].astype(str).str.strip()
                     df["採購數量"] = pd.to_numeric(df["採購數量"], errors="coerce").fillna(0).astype(int)
 

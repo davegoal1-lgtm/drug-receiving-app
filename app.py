@@ -533,19 +533,19 @@ with tab1:
                 else:
                     df["廠商"] = ""
 
-               if st.session_state.master_df is not None:
-                   df = df.merge(st.session_state.master_df, on="品號", how="left")
+                if st.session_state.master_df is not None:
+                    df = df.merge(st.session_state.master_df, on="品號", how="left")
 
-               if "標準藥名" not in df.columns:
-                   df["標準藥名"] = df["藥名"]
-               else:
-                   df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
+                if "標準藥名" not in df.columns:
+                    df["標準藥名"] = df["藥名"]
+                else:
+                    df["標準藥名"] = df["標準藥名"].fillna(df["藥名"])
 
-               for col in ["學名", "別名1", "別名2"]:
-                   if col not in df.columns:
-                       df[col] = ""
-                   else:
-                       df[col] = df[col].fillna("")
+                for col in ["學名", "別名1", "別名2"]:
+                    if col not in df.columns:
+                        df[col] = ""
+                    else:
+                        df[col] = df[col].fillna("")
 
                 df["已驗收數量"] = 0
                 df["狀態"] = "待驗收"

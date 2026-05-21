@@ -509,8 +509,6 @@ with tab1:
    
                 
 
-            supplier_col = st.selectbox("廠商欄位", ["無"] + cols)
-
             if st.button("載入 BB 採購單"):
                 df = raw.copy()
                 df = df[df[po_col].astype(str).str.startswith("BB")].copy()

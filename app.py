@@ -727,7 +727,7 @@ with tab3:
                 st.success("AI 收貨單辨識完成")
                 selected_po_pool = st.session_state.get("selected_po_pool")
 
-                if selected_po_pool is not None and not selected_po_pool.empty:
+        if selected_po_pool is not None and not selected_po_pool.empty:
                 his_confirm_df = build_his_confirm_df(
                     ai_result,
                     selected_po_pool

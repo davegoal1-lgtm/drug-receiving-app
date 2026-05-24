@@ -713,7 +713,7 @@ with tab3:
         image = Image.open(ocr_file)
         st.image(image, caption="收貨單", use_container_width=True)
 
-        if st.button("開始 AI 辨識收貨單"):
+               if st.button("開始 AI 辨識收貨單"):
             try:
                 ai_result = ai_parse_delivery_image(ocr_file)
 
@@ -725,18 +725,19 @@ with tab3:
                 )
 
                 st.success("AI 收貨單辨識完成")
+
                 selected_po_pool = st.session_state.get("selected_po_pool")
 
-        if selected_po_pool is not None and not selected_po_pool.empty:
-                his_confirm_df = build_his_confirm_df(
-                    ai_result,
-                    selected_po_pool
-                )
+                if selected_po_pool is not None and not selected_po_pool.empty:
+                    his_confirm_df = build_his_confirm_df(
+                        ai_result,
+                        selected_po_pool
+                    )
 
-                st.session_state["his_confirm_df"] = his_confirm_df
-                st.success("已產生 HIS 驗收確認資料，請到第④步確認")
-            else:
-                st.warning("尚未選擇採購單，請先回第②步勾選採購單")
+                    st.session_state["his_confirm_df"] = his_confirm_df
+                    st.success("已產生 HIS 驗收確認資料，請到第④步確認")
+                else:
+                    st.warning("尚未選擇採購單，請先回第②步勾選採購單")
 
             except Exception as e:
                 st.error("AI 收貨單辨識失敗")

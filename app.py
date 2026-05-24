@@ -713,7 +713,7 @@ with tab3:
         image = Image.open(ocr_file)
         st.image(image, caption="收貨單", use_container_width=True)
 
-               if st.button("開始 AI 辨識收貨單"):
+        if st.button("開始 AI 辨識收貨單"):
             try:
                 ai_result = ai_parse_delivery_image(ocr_file)
 
@@ -736,8 +736,9 @@ with tab3:
 
                     st.session_state["his_confirm_df"] = his_confirm_df
                     st.success("已產生 HIS 驗收確認資料，請到第④步確認")
+
                 else:
-                    st.warning("尚未選擇採購單，請先回第②步勾選採購單")
+                    st.warning("請先到第②步選擇採購單")
 
             except Exception as e:
                 st.error("AI 收貨單辨識失敗")
@@ -760,20 +761,10 @@ with tab3:
 
         if matched_drug is not None and score >= 0.35:
             st.success(
-                f"對應主檔：{matched_drug['品號']}｜{matched_drug['品號']}｜相似度 {score:.2f}"
+                f"對應主檔：{matched_drug['品號']}｜相似度 {score:.2f}"
             )
-            st.session_state.delivery_matched_code = str(matched_drug["品號"])
         else:
-            st.warning("AI 已辨識藥名，但尚未明確對應到藥品主檔")
-            st.session_state.delivery_matched_code = ""
-
-        st.info(f"AI藥品名稱：{drug_name or '未抓到'}")
-        st.info(f"品號：{st.session_state.delivery_matched_code or '未對應'}")
-        st.info(f"數量：{qty or '未抓到'}")
-        st.info(f"批號：{lot or '未抓到'}")
-        st.info(f"有效日期：{expiry or '未抓到'}")
-        st.info(f"收貨單號：{delivery_no or '未抓到'}")
-        st.info(f"廠商：{vendor or '未抓到'}")
+            st.warning("尚未明確對應主檔")
 with tab4:
     st.subheader("④ HIS 驗收確認")
 

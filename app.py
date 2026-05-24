@@ -419,33 +419,23 @@ def build_his_confirm_df(ocr_result, selected_po_pool):
 
     for _, po_row in selected_po_pool.iterrows():
         po_code = str(po_row.get("品號", "")).strip()
-
         is_match = matched_code != "" and po_code == matched_code
 
-        if is_match:
-            rows.append({
-                "辨識狀態": "已辨識完成",
-                "採購單號": po_row.get("採購單號", ""),
-                "品號": po_row.get("品號", ""),
-                "藥名": po_row.get("標準藥名", po_row.get("藥名", "")),
-                "驗收數量": qty,
-                "批號": lot,
-                "有效日期": expiry,
-                "收貨單號": delivery_no,
-                "廠商": vendor or po_row.get("廠商", "")
-            })
-        else:
-            rows.append({
-                "辨識狀態": "尚未辨識完成",
-                "採購單號": po_row.get("採購單號", ""),
-                "品號": po_row.get("品號", ""),
-                "藥名": po_row.get("標準藥名", po_row.get("藥名", "")),
-                "驗收數量": "",
-                "批號": "",
-                "有效日期": "",
-                "收貨單號": "",
-                "廠商": po_row.get("廠商", "")
-            })
+        base_row = {
+            "辨識狀態": "已辨識完成" if is_match else "尚未辨識完成",
+            "採購單號": po_row.get("採購單號", ""),
+            "品號": po_row.get("品號", ""),
+            "藥名": po_row.get("藥名", po_row.get("標準藥名", "")),
+            "標準藥名": po_row.get("標準藥名", ""),
+            "採購數量": po_row.get("採購數量", ""),
+            "驗收數量": qty if is_match else "",
+            "批號": lot if is_match else "",
+            "有效日期": expiry if is_match else "",
+            "收貨單號": delivery_no if is_match else "",
+            "廠商": vendor if is_match and vendor else po_row.get("廠商", "")
+        }
+
+        rows.append(base_row)
 
     return pd.DataFrame(rows)
 

@@ -705,13 +705,15 @@ with tab2:
                     st.success("已儲存選取採購單，可進行收貨單 OCR")
 
             rows = []
-            for _, row in show_df.iterrows():
+
+            for _, row in selected_po_pool.iterrows():
                 received = get_received_total(row["採購單號"], row["品號"])
                 row["已驗收數量"] = received
                 row["狀態"] = make_status(int(row["採購數量"]), received)
                 rows.append(row)
 
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            if rows:
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
 with tab3:
     st.subheader("③ 收貨單 AI OCR")
 

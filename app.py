@@ -672,12 +672,52 @@ with tab2:
         if date_df.empty:
             st.warning("這一天沒有採購單")
         else:
-            po_list = date_df["採購單號"].astype(str).unique().tolist()
+            with tab2:
+    st.subheader("② 選擇採購日期")
 
-            selected_po = st.selectbox("選擇當日採購單號", po_list)
-            st.session_state.selected_po = selected_po
+    if st.session_state.po_df is None:
+        st.warning("請先匯入採購單")
+    else:
+        df = st.session_state.po_df.copy()
+        df["採購日期"] = pd.to_datetime(df["採購日期"], errors="coerce").dt.date
 
-            show_df = date_df[date_df["採購單號"].astype(str) == selected_po].copy()
+        selected_date = st.date_input("選擇採購日期", value=date.today())
+
+        date_df = df[df["採購日期"] == selected_date].copy()
+
+        if date_df.empty:
+            st.warning("這一天沒有採購單")
+        else:
+            st.markdown("### 當日採購單")
+
+            date_df.insert(0, "選取", False)
+
+            select_all = st.checkbox("全部選取")
+
+            if select_all:
+                date_df["選取"] = True
+
+            edited_df = st.data_editor(
+                date_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "選取": st.column_config.CheckboxColumn("選取")
+                }
+            )
+
+            selected_po_pool = edited_df[
+                edited_df["選取"] == True
+            ].copy()
+
+            st.info(f"已選取 {len(selected_po_pool)} 筆採購明細")
+
+            if st.button("確認選取採購單"):
+                if selected_po_pool.empty:
+                    st.warning("請至少選一筆")
+                else:
+                    st.session_state["selected_po_pool"] = selected_po_pool
+                    st.success("已儲存選取採購單，可進行收貨單 OCR")
 
             rows = []
             for _, row in show_df.iterrows():
@@ -751,118 +791,70 @@ with tab3:
 with tab4:
     st.subheader("④ HIS 驗收確認")
 
-    if st.session_state.po_df is None or st.session_state.selected_po is None:
-        st.warning("請先匯入並選擇採購單")
+    his_confirm_df = st.session_state.get("his_confirm_df")
+
+    if his_confirm_df is None or his_confirm_df.empty:
+        st.warning("尚未有辨識結果，請先完成收貨單 OCR")
     else:
-        po_items = st.session_state.po_df[
-            st.session_state.po_df["採購單號"].astype(str) == str(st.session_state.selected_po)
-        ].copy()
+        st.markdown("### HIS 驗收資料確認")
 
-        matched_row, score = find_best_match(st.session_state.delivery_ocr_text, po_items) if st.session_state.delivery_ocr_text else (None, 0)
-
-delivery_matched_drug, delivery_drug_score = match_delivery_drug_from_master(st.session_state.delivery_ocr_text)
-
-if delivery_matched_drug is not None and delivery_drug_score >= 0.35:
-    matched_code = str(delivery_matched_drug.get("品號", ""))
-
-    po_match = po_items[
-        po_items["品號"].astype(str) == matched_code
-    ]
-
-    if not po_match.empty:
-        matched_row = po_match.iloc[0]
-        score = delivery_drug_score
-        
-
-        if matched_row is not None and score >= 0.30:
-            st.success(f"建議品項：{matched_row['品號']}｜{matched_row['標準藥名']}｜相似度 {score:.2f}")
-            default_code = str(matched_row["品號"])
-        else:
-            default_code = str(po_items.iloc[0]["品號"])
-            st.warning("請手動選擇品項")
-
-        options = [
-            f"{r['品號']}｜{r['標準藥名']}｜採購量:{r['採購數量']}"
-            for _, r in po_items.iterrows()
+        required_cols = [
+            "採購單號",
+            "品號",
+            "驗收數量",
+            "批號",
+            "有效日期",
+            "廠商"
         ]
 
-        idx = next((i for i, opt in enumerate(options) if opt.startswith(default_code)), 0)
-        selected_item = st.selectbox("選擇驗收品項", options, index=idx)
-        selected_code = selected_item.split("｜")[0]
-        row = po_items[po_items["品號"].astype(str) == selected_code].iloc[0]
+        def check_status(row):
+            for col in required_cols:
+                if pd.isna(row.get(col)) or str(row.get(col)).strip() == "":
+                    return "尚未辨識完成"
+            return "已辨識完成"
 
-        st.markdown("### HIS 紅色必填欄位")
+        his_confirm_df["辨識狀態"] = his_confirm_df.apply(check_status, axis=1)
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            his_po = st.text_input("採購單號", value=str(row["採購單號"]))
-        with c2:
-            his_code = st.text_input("品號", value=str(row["品號"]))
-        with c3:
-            his_supplier = st.text_input("廠商", value=str(row["廠商"]))
+        edited_df = st.data_editor(
+            his_confirm_df,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="dynamic"
+        )
 
-        st.text_input("藥名", value=str(row["標準藥名"]), disabled=True)
+        edited_df["辨識狀態"] = edited_df.apply(check_status, axis=1)
 
-        c4, c5, c6 = st.columns(3)
-        with c4:
-            delivery_no = st.text_input("收貨單號", value=extract_delivery_no(st.session_state.delivery_ocr_text))
-        with c5:
-            lot_no = st.text_input("批號", value=extract_lot(st.session_state.delivery_ocr_text))
-        with c6:
-            expiry = st.text_input("有效日期", value=extract_expiry(st.session_state.delivery_ocr_text))
+        complete_df = edited_df[edited_df["辨識狀態"] == "已辨識完成"]
+        incomplete_df = edited_df[edited_df["辨識狀態"] == "尚未辨識完成"]
 
-        c7, c8, c9 = st.columns(3)
-        with c7:
-            receive_qty = st.number_input(
-                "驗收數量",
-                min_value=0,
-                step=1,
-                value=extract_quantity(st.session_state.delivery_ocr_text) or 0
-            )
-        with c8:
-            inspector = st.text_input("驗收人")
-        with c9:
-            inspect_date = st.date_input("驗收日期", value=date.today())
-
-        note = st.text_area("備註")
-
-        already = get_received_total(his_po, his_code)
-        after = already + int(receive_qty)
-        status = make_status(int(row["採購數量"]), after)
-
-        st.write(f"採購數量：{int(row['採購數量'])}")
-        st.write(f"已驗收數量：{already}")
-        st.write(f"驗收後累計：{after}")
-        st.write(f"狀態：**{status}**")
-
-        if status == "超收異常":
-            st.error("⚠️ 超過採購數量，請確認")
+        st.success(f"已辨識完成：{len(complete_df)} 筆")
+        st.warning(f"尚未辨識完成：{len(incomplete_df)} 筆")
 
         if st.button("確認寫入驗收紀錄"):
-            if receive_qty <= 0:
-                st.error("驗收數量需大於 0")
-            elif not lot_no or not expiry:
-                st.error("批號與有效日期為必填")
+            if not incomplete_df.empty:
+                st.error("仍有資料尚未完整填寫，請補齊後再確認")
             else:
-                st.session_state.records.append({
-                    "驗收時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "採購單號": his_po,
-                    "品號": his_code,
-                    "藥名": row["標準藥名"],
-                    "廠商": his_supplier,
-                    "收貨單號": delivery_no,
-                    "批號": lot_no,
-                    "有效日期": expiry,
-                    "驗收數量": int(receive_qty),
-                    "驗收人": inspector,
-                    "驗收日期": str(inspect_date),
-                    "採購數量": int(row["採購數量"]),
-                    "累計驗收數量": after,
-                    "狀態": status,
-                    "備註": note,
-                    "收貨單OCR原文": st.session_state.delivery_ocr_text
-                })
-                st.success("已寫入驗收紀錄")
+                for _, row in edited_df.iterrows():
+                    st.session_state.records.append({
+                        "驗收時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "採購單號": row.get("採購單號", ""),
+                        "品號": row.get("品號", ""),
+                        "藥名": row.get("藥名", ""),
+                        "廠商": row.get("廠商", ""),
+                        "收貨單號": row.get("收貨單號", ""),
+                        "批號": row.get("批號", ""),
+                        "有效日期": row.get("有效日期", ""),
+                        "驗收數量": int(row.get("驗收數量", 0)),
+                        "驗收人": "",
+                        "驗收日期": str(date.today()),
+                        "採購數量": "",
+                        "累計驗收數量": "",
+                        "狀態": "已完成",
+                        "備註": "",
+                        "收貨單OCR原文": st.session_state.get("delivery_ocr_text", "")
+                    })
+
+                st.success("已批次寫入驗收紀錄")
                 st.rerun()
 
 with tab5:

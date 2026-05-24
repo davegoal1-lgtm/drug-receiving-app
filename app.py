@@ -398,7 +398,72 @@ def parse_po_ocr(text):
 
     df = df.drop_duplicates(subset=["品號"])
 
-    return df
+   return df
+
+
+def build_his_confirm_df(ocr_result, selected_po_pool):
+    result_rows = []
+
+    drug_name = str(ocr_result.get("drug_name", "")).strip()
+    qty = ocr_result.get("quantity", 0)
+    lot = ocr_result.get("lot", "")
+    expiry = ocr_result.get("expiry", "")
+    delivery_no = ocr_result.get("delivery_no", "")
+    vendor = ocr_result.get("vendor", "")
+
+    matched_drug, score = match_ai_drug_name_to_master(drug_name)
+
+    if matched_drug is not None and score >= 0.35:
+        matched_code = str(matched_drug["品號"])
+
+        po_match = selected_po_pool[
+            selected_po_pool["品號"].astype(str) == matched_code
+        ]
+
+        if not po_match.empty:
+            po_row = po_match.iloc[0]
+
+            result_rows.append({
+                "辨識狀態": "已辨識完成",
+                "採購單號": po_row["採購單號"],
+                "品號": matched_code,
+                "藥名": po_row["標準藥名"],
+                "驗收數量": qty,
+                "批號": lot,
+                "有效日期": expiry,
+                "收貨單號": delivery_no,
+                "廠商": vendor
+            })
+
+        else:
+            result_rows.append({
+                "辨識狀態": "尚未辨識完成",
+                "採購單號": "",
+                "品號": matched_code,
+                "藥名": drug_name,
+                "驗收數量": qty,
+                "批號": lot,
+                "有效日期": expiry,
+                "收貨單號": delivery_no,
+                "廠商": vendor
+            })
+
+    else:
+        result_rows.append({
+            "辨識狀態": "尚未辨識完成",
+            "採購單號": "",
+            "品號": "",
+            "藥名": drug_name,
+            "驗收數量": qty,
+            "批號": lot,
+            "有效日期": expiry,
+            "收貨單號": delivery_no,
+            "廠商": vendor
+        })
+
+    return pd.DataFrame(result_rows)
+
+
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "⓪ 藥品主檔",
     "① 匯入採購單",

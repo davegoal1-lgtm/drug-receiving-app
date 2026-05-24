@@ -408,7 +408,6 @@ def build_his_confirm_df(ocr_result, selected_po_pool):
     qty = ocr_result.get("quantity", 0)
     lot = ocr_result.get("lot", "")
     expiry = ocr_result.get("expiry", "")
-    delivery_no = ocr_result.get("delivery_no", "")
     vendor = ocr_result.get("vendor", "")
 
     matched_drug, score = match_ai_drug_name_to_master(drug_name)
@@ -431,7 +430,6 @@ def build_his_confirm_df(ocr_result, selected_po_pool):
             "驗收數量": qty if is_match else "",
             "批號": lot if is_match else "",
             "有效日期": expiry if is_match else "",
-            "收貨單號": delivery_no if is_match else "",
             "廠商": vendor if is_match and vendor else po_row.get("廠商", "")
         }
 
@@ -797,32 +795,40 @@ with tab4:
         st.success(f"已辨識完成：{len(complete_df)} 筆")
         st.warning(f"尚未辨識完成：{len(incomplete_df)} 筆")
 
-        if st.button("確認寫入驗收紀錄"):
-            if not incomplete_df.empty:
-                st.error("仍有資料尚未完整填寫，請補齊後再確認")
-            else:
-                for _, row in edited_df.iterrows():
-                    st.session_state.records.append({
-                        "驗收時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "採購單號": row.get("採購單號", ""),
-                        "品號": row.get("品號", ""),
-                        "藥名": row.get("藥名", ""),
-                        "廠商": row.get("廠商", ""),
-                        "收貨單號": row.get("收貨單號", ""),
-                        "批號": row.get("批號", ""),
-                        "有效日期": row.get("有效日期", ""),
-                        "驗收數量": int(row.get("驗收數量", 0)),
-                        "驗收人": "",
-                        "驗收日期": str(date.today()),
-                        "採購數量": "",
-                        "累計驗收數量": "",
-                        "狀態": "已完成",
-                        "備註": "",
-                        "收貨單OCR原文": st.session_state.get("delivery_ocr_text", "")
-                    })
+      if st.button("確認寫入驗收紀錄"):
+    checked_df = edited_df[edited_df["選取"] == True].copy()
 
-                st.success("已批次寫入驗收紀錄")
-                st.rerun()
+    if checked_df.empty:
+        st.warning("請先勾選要寫入的驗收資料")
+    else:
+        checked_df["辨識狀態"] = checked_df.apply(check_status, axis=1)
+
+        incomplete_checked_df = checked_df[
+            checked_df["辨識狀態"] == "尚未辨識完成"
+        ]
+
+        if not incomplete_checked_df.empty:
+            st.error("勾選的資料仍有欄位未填完整，請補齊驗收數量、批號、有效日期")
+        else:
+            for _, row in checked_df.iterrows():
+                st.session_state.records.append({
+                    "驗收時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "採購單號": row.get("採購單號", ""),
+                    "品號": row.get("品號", ""),
+                    "藥名": row.get("藥名", ""),
+                    "標準藥名": row.get("標準藥名", ""),
+                    "採購數量": row.get("採購數量", ""),
+                    "驗收數量": int(row.get("驗收數量", 0)),
+                    "批號": row.get("批號", ""),
+                    "有效日期": row.get("有效日期", ""),
+                    "廠商": row.get("廠商", ""),
+                    "驗收日期": str(date.today()),
+                    "狀態": "已完成",
+                    "收貨單OCR原文": st.session_state.get("delivery_ocr_text", "")
+                })
+
+            st.success("已寫入驗收紀錄")
+            st.rerun()
 
 with tab5:
     st.subheader("⑤ 匯出 HIS 格式")

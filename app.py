@@ -402,7 +402,7 @@ def parse_po_ocr(text):
 
 
 def build_his_confirm_df(ocr_result, selected_po_pool):
-    result_rows = []
+    rows = []
 
     drug_name = str(ocr_result.get("drug_name", "")).strip()
     qty = ocr_result.get("quantity", 0)
@@ -413,55 +413,41 @@ def build_his_confirm_df(ocr_result, selected_po_pool):
 
     matched_drug, score = match_ai_drug_name_to_master(drug_name)
 
+    matched_code = ""
     if matched_drug is not None and score >= 0.35:
-        matched_code = str(matched_drug["品號"])
+        matched_code = str(matched_drug.get("品號", ""))
 
-        po_match = selected_po_pool[
-            selected_po_pool["品號"].astype(str) == matched_code
-        ]
+    for _, po_row in selected_po_pool.iterrows():
+        po_code = str(po_row.get("品號", "")).strip()
 
-        if not po_match.empty:
-            po_row = po_match.iloc[0]
+        is_match = matched_code != "" and po_code == matched_code
 
-            result_rows.append({
+        if is_match:
+            rows.append({
                 "辨識狀態": "已辨識完成",
-                "採購單號": po_row["採購單號"],
-                "品號": matched_code,
-                "藥名": po_row["標準藥名"],
+                "採購單號": po_row.get("採購單號", ""),
+                "品號": po_row.get("品號", ""),
+                "藥名": po_row.get("標準藥名", po_row.get("藥名", "")),
                 "驗收數量": qty,
                 "批號": lot,
                 "有效日期": expiry,
                 "收貨單號": delivery_no,
-                "廠商": vendor
+                "廠商": vendor or po_row.get("廠商", "")
             })
-
         else:
-            result_rows.append({
+            rows.append({
                 "辨識狀態": "尚未辨識完成",
-                "採購單號": "",
-                "品號": matched_code,
-                "藥名": drug_name,
-                "驗收數量": qty,
-                "批號": lot,
-                "有效日期": expiry,
-                "收貨單號": delivery_no,
-                "廠商": vendor
+                "採購單號": po_row.get("採購單號", ""),
+                "品號": po_row.get("品號", ""),
+                "藥名": po_row.get("標準藥名", po_row.get("藥名", "")),
+                "驗收數量": "",
+                "批號": "",
+                "有效日期": "",
+                "收貨單號": "",
+                "廠商": po_row.get("廠商", "")
             })
 
-    else:
-        result_rows.append({
-            "辨識狀態": "尚未辨識完成",
-            "採購單號": "",
-            "品號": "",
-            "藥名": drug_name,
-            "驗收數量": qty,
-            "批號": lot,
-            "有效日期": expiry,
-            "收貨單號": delivery_no,
-            "廠商": vendor
-        })
-
-    return pd.DataFrame(result_rows)
+    return pd.DataFrame(rows)
 
 
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -739,6 +725,18 @@ with tab3:
                 )
 
                 st.success("AI 收貨單辨識完成")
+                selected_po_pool = st.session_state.get("selected_po_pool")
+
+                if selected_po_pool is not None and not selected_po_pool.empty:
+                his_confirm_df = build_his_confirm_df(
+                    ai_result,
+                    selected_po_pool
+                )
+
+                st.session_state["his_confirm_df"] = his_confirm_df
+                st.success("已產生 HIS 驗收確認資料，請到第④步確認")
+            else:
+                st.warning("尚未選擇採購單，請先回第②步勾選採購單")
 
             except Exception as e:
                 st.error("AI 收貨單辨識失敗")

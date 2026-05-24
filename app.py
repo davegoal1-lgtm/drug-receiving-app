@@ -656,23 +656,8 @@ with tab1:
                     st.success("OCR 採購單已載入")
 
 
+
 with tab2:
-    st.subheader("② 選擇採購日期")
-
-    if st.session_state.po_df is None:
-        st.warning("請先匯入採購單")
-    else:
-        df = st.session_state.po_df.copy()
-        df["採購日期"] = pd.to_datetime(df["採購日期"], errors="coerce").dt.date
-
-        selected_date = st.date_input("選擇採購日期", value=date.today())
-
-        date_df = df[df["採購日期"] == selected_date].copy()
-
-        if date_df.empty:
-            st.warning("這一天沒有採購單")
-        else:
-            with tab2:
     st.subheader("② 選擇採購日期")
 
     if st.session_state.po_df is None:

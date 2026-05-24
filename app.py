@@ -398,7 +398,7 @@ def parse_po_ocr(text):
 
     df = df.drop_duplicates(subset=["品號"])
 
-   return df
+    return df
 
 
 def build_his_confirm_df(ocr_result, selected_po_pool):

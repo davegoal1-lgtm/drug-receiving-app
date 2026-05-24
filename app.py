@@ -855,11 +855,13 @@ with tab4:
 
                     st.success("已寫入驗收紀錄")
                     st.rerun()
+        st.markdown("### 已驗收完成紀錄")
+
         if st.session_state.records:
-            st.markdown("### 已驗收完成紀錄")
             done_df = pd.DataFrame(st.session_state.records)
             st.dataframe(done_df, use_container_width=True)
-
+        else:
+            st.info("目前尚無已寫入的驗收紀錄")
 with tab5:
     st.subheader("⑤ 匯出 HIS 格式")
 

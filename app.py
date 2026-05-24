@@ -847,10 +847,6 @@ with tab4:
                             "廠商": row.get("廠商", ""),
                             "驗收日期": str(date.today()),
                             "狀態": "已完成",
-                            "收貨單OCR原文": st.session_state.get(
-                                "delivery_ocr_text",
-                                ""
-                            )
                         })
 
                     st.success("已寫入驗收紀錄")
